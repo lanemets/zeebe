@@ -166,10 +166,20 @@ public class ElasticsearchExporterConfiguration {
     public int delay = 5;
     // bulk size before flush
     public int size = 1_000;
+    // memory limit of the bulk in MB before flush
+    public int memoryLimit = 10;
+    // TODO (saig0): update docs and configurations
 
     @Override
     public String toString() {
-      return "BulkConfiguration{" + "delay=" + delay + ", size=" + size + '}';
+      return "BulkConfiguration{"
+          + "delay="
+          + delay
+          + ", size="
+          + size
+          + ", memoryLimit="
+          + memoryLimit
+          + '}';
     }
   }
 

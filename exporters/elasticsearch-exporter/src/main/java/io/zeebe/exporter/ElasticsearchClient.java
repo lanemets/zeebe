@@ -140,6 +140,8 @@ public class ElasticsearchClient {
     final int bulkSize = bulkRequest.size();
     metrics.recordBulkSize(bulkSize);
 
+    // TODO (saig0): should we introduce a metric for the bulk memory size?
+
     final BulkResponse bulkResponse;
     try {
       bulkResponse = exportBulk();
@@ -188,7 +190,13 @@ public class ElasticsearchClient {
   }
 
   public boolean shouldFlush() {
-    return bulkRequest.size() >= configuration.bulk.size;
+    return bulkRequest.size() >= configuration.bulk.size
+        || getBulkMemorySizeInMB() >= configuration.bulk.memoryLimit;
+  }
+
+  private int getBulkMemorySizeInMB() {
+    final var bytes = bulkRequest.stream().mapToInt(String::length).sum();
+    return bytes / 1024 / 1024;
   }
 
   /** @return true if request was acknowledged */

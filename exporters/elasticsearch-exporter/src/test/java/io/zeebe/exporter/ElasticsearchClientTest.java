@@ -164,4 +164,46 @@ public class ElasticsearchClientTest extends AbstractElasticsearchExporterIntegr
     // then
     assertThat(bulkRequest).hasSize(1);
   }
+
+  @Test
+  public void shouldFlushOnMemoryLimit() {
+    // TODO(saig0): clean me up
+
+    // given
+    configuration.bulk.memoryLimit = 1;
+    configuration.bulk.size = Integer.MAX_VALUE;
+    configuration.bulk.delay = Integer.MAX_VALUE;
+
+    final var memoryLimitInMB = 1024 * 1024 * configuration.bulk.memoryLimit;
+    final String bigValue = "x".repeat(memoryLimitInMB / 2);
+    final var variableWithBigValue = String.format("{\"value\":\"%s\"}", bigValue);
+
+    final Record<VariableRecordValue> recordMock = mock(Record.class);
+    when(recordMock.getKey()).thenReturn(1L);
+    when(recordMock.getPartitionId()).thenReturn(1);
+    when(recordMock.getValueType()).thenReturn(ValueType.VARIABLE);
+    when(recordMock.toJson()).thenReturn(variableWithBigValue);
+
+    final VariableRecordValue value = mock(VariableRecordValue.class);
+    when(value.getName()).thenReturn("varName");
+    when(value.getValue()).thenReturn(bigValue);
+    when(value.getWorkflowInstanceKey()).thenReturn(2L);
+    when(value.getScopeKey()).thenReturn(1L);
+
+    when(recordMock.getValue()).thenReturn(value);
+
+    // when
+    client.index(recordMock);
+
+    assertThat(client.shouldFlush()).isFalse();
+
+    when(recordMock.getKey()).thenReturn(2L);
+    when(recordMock.toJson())
+        .thenReturn(String.format("{\"value\":\"%s\"}", "y".repeat(memoryLimitInMB / 2)));
+
+    client.index(recordMock);
+
+    // then
+    assertThat(client.shouldFlush()).isTrue();
+  }
 }
