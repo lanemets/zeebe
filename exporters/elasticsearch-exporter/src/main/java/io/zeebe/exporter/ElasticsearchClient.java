@@ -140,7 +140,8 @@ public class ElasticsearchClient {
     final int bulkSize = bulkRequest.size();
     metrics.recordBulkSize(bulkSize);
 
-    // TODO (saig0): should we introduce a metric for the bulk memory size?
+    final var bulkMemorySize = getBulkMemorySize();
+    metrics.recordBulkMemorySize(bulkMemorySize);
 
     final BulkResponse bulkResponse;
     try {
