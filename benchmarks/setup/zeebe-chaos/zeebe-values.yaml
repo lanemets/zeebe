@@ -1,6 +1,6 @@
 image:
-  repository: camunda/zeebe
-  tag: SNAPSHOT
+  repository: gcr.io/zeebe-io/zeebe
+  tag: zeebe-chaos
   pullPolicy: Always
 
 # ZEEBE CFG
