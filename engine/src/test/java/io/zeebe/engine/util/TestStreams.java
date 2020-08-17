@@ -37,6 +37,7 @@ import io.zeebe.protocol.record.RecordType;
 import io.zeebe.protocol.record.ValueType;
 import io.zeebe.protocol.record.intent.Intent;
 import io.zeebe.test.util.AutoCloseableRule;
+import io.zeebe.util.FileUtil;
 import io.zeebe.util.Loggers;
 import io.zeebe.util.sched.ActorScheduler;
 import java.io.IOException;
@@ -224,11 +225,21 @@ public final class TestStreams {
 
     final LogContext context = logContextMap.get(logName);
     final ProcessorContext processorContext =
-        ProcessorContext.createStreamContext(context, streamProcessor, zeebeDb);
+        ProcessorContext.createStreamContext(context, streamProcessor, zeebeDb, storage);
     streamContextMap.put(logName, processorContext);
     closeables.manage(processorContext);
 
     return streamProcessor;
+  }
+
+  public void pauseProcessing(final String streamName) {
+    streamContextMap.get(streamName).streamProcessor.pauseProcessing();
+    LOG.info("Paused processing for stream {}", streamName);
+  }
+
+  public void resumeProcessing(final String streamName) {
+    streamContextMap.get(streamName).streamProcessor.resumeProcessing();
+    LOG.info("Resume processing for stream {}", streamName);
   }
 
   public void closeProcessor(final String streamName) throws Exception {
@@ -374,17 +385,25 @@ public final class TestStreams {
 
     private boolean closed = false;
     private final StreamProcessor streamProcessor;
+    private final Path runtimePath;
 
     private ProcessorContext(
-        final LogContext logContext, final StreamProcessor streamProcessor, final ZeebeDb zeebeDb) {
+        final LogContext logContext,
+        final StreamProcessor streamProcessor,
+        final ZeebeDb zeebeDb,
+        final Path runtimePath) {
       this.logContext = logContext;
       this.streamProcessor = streamProcessor;
       this.zeebeDb = zeebeDb;
+      this.runtimePath = runtimePath;
     }
 
     public static ProcessorContext createStreamContext(
-        final LogContext logContext, final StreamProcessor streamProcessor, final ZeebeDb zeebeDb) {
-      return new ProcessorContext(logContext, streamProcessor, zeebeDb);
+        final LogContext logContext,
+        final StreamProcessor streamProcessor,
+        final ZeebeDb zeebeDb,
+        final Path runtimePath) {
+      return new ProcessorContext(logContext, streamProcessor, zeebeDb, runtimePath);
     }
 
     public SynchronousLogStream getLogStream() {
@@ -399,6 +418,7 @@ public final class TestStreams {
       Loggers.IO_LOGGER.debug("Close stream processor");
       streamProcessor.closeAsync().join();
       zeebeDb.close();
+      FileUtil.deleteFolder(runtimePath);
       closed = true;
     }
   }

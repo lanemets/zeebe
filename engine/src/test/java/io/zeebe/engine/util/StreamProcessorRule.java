@@ -133,6 +133,14 @@ public final class StreamProcessorRule implements TestRule {
     return streamProcessingComposite.startTypedStreamProcessor(partitionId, factory);
   }
 
+  public void pauseProcessing(final int partitionId) {
+    streamProcessingComposite.pauseProcessing(partitionId);
+  }
+
+  public void resumeProcessing(final int partitionId) {
+    streamProcessingComposite.resumeProcessing(partitionId);
+  }
+
   public void closeStreamProcessor(final int partitionId) {
     streamProcessingComposite.closeStreamProcessor(partitionId);
   }
