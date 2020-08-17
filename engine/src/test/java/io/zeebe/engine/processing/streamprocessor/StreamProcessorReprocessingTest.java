@@ -21,6 +21,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
+import io.zeebe.engine.processing.streamprocessor.StreamProcessor.Phase;
 import io.zeebe.engine.processing.streamprocessor.sideeffect.SideEffectProducer;
 import io.zeebe.engine.processing.streamprocessor.writers.TypedResponseWriter;
 import io.zeebe.engine.processing.streamprocessor.writers.TypedStreamWriter;
@@ -31,8 +32,10 @@ import io.zeebe.protocol.record.intent.WorkflowInstanceIntent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.InOrder;
@@ -85,6 +88,43 @@ public final class StreamProcessorReprocessingTest {
     inOrder.verify(typedRecordProcessor, TIMEOUT.times(2)).onClose();
 
     inOrder.verifyNoMoreInteractions();
+  }
+
+  @Test
+  public void shouldNotSwitchToProcessingAfterReprocessingWhenPaused() throws Exception {
+    // given - bunch of events to reprocess
+    final long firstEvent = streamProcessorRule.writeWorkflowInstanceEvent(ELEMENT_ACTIVATING, 1);
+    IntStream.range(0, 25)
+        .forEach(i -> streamProcessorRule.writeWorkflowInstanceEvent(ELEMENT_ACTIVATING, i));
+    streamProcessorRule.writeWorkflowInstanceEventWithSource(
+        WorkflowInstanceIntent.ELEMENT_ACTIVATED, 1, firstEvent);
+    waitUntil(
+        () ->
+            streamProcessorRule
+                .events()
+                .onlyWorkflowInstanceRecords()
+                .withIntent(ELEMENT_ACTIVATED)
+                .exists());
+
+    // when
+    final var countDownLatch = new CountDownLatch(1);
+    final var streamProcessor =
+        streamProcessorRule.startTypedStreamProcessor(
+            (processors, context) ->
+                processors.withListener(
+                    new StreamProcessorLifecycleAware() {
+                      @Override
+                      public void onRecovered(final ReadonlyProcessingContext context) {
+                        countDownLatch.countDown();
+                      }
+                    }));
+    streamProcessor.pauseProcessing();
+    final var success = countDownLatch.await(15, TimeUnit.SECONDS);
+
+    // then
+    assertThat(success).isTrue();
+    final var currentPhase = streamProcessor.getCurrentPhase();
+    assertThat(Phase.PAUSED).isEqualTo(currentPhase);
   }
 
   @Test
