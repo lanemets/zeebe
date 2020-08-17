@@ -33,8 +33,6 @@ public class ElasticsearchMetrics {
           .namespace("zeebe_elasticsearch_exporter")
           .name("bulk_memory_size")
           .help("Exporter bulk memory size")
-          .buckets(
-              1_000, 10_000, 100_000, 1_000_000, 10_000_000) // TODO (saig0): what is this good for?
           .labelNames("partition")
           .register();
 
